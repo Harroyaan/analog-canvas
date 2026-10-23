@@ -57,6 +57,7 @@ import {
   type GalleryOrder,
 } from "../gallery-order";
 import { gallerySourceByKey, gallerySourceOfEntryId } from "../gallery-sources";
+import { SITE_USAGE_NOTE } from "../usage-policy-note";
 import { useGalleryFilters } from "./gallery-feed-filters";
 import { useGalleryWall } from "./gallery-feed-wall";
 import { useGalleryOwnerTools } from "./gallery-feed-owner-tools";
@@ -876,8 +877,11 @@ export function GalleryFeed({
       ) : null}
       {state.status === "signed-out" ? null : (
         <footer className="gallery-footnote" data-testid="gallery-footnote">
-          Open any circuit to edit your own copy; publish your own from the
-          editor.
+          <p>
+            Open any circuit to edit your own copy; publish your own from the
+            editor.
+          </p>
+          <p data-testid="gallery-usage-note">{SITE_USAGE_NOTE}</p>
         </footer>
       )}
       {rejecting ? (
