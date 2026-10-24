@@ -26,7 +26,7 @@ import {
   type NetlistMode,
 } from "./netlist-mode";
 import type { NativeExternalTarget } from "../../hosts/native-external-links";
-import { RnlNetlistView } from "./rnl-netlist-view";
+import { lazyChunk } from "../../components/chunk-load-fallback";
 import {
   inferNetlistProcess,
   preparedNetlistDefaults,
@@ -55,6 +55,13 @@ import { StaticCodeView } from "../project-code/static-code-view";
 
 const ProjectTextEditor = lazy(
   () => import("../project-code/project-text-editor"),
+);
+
+// RNL's writer and symbol table load with the first RNL netlist mode.
+const RnlNetlistView = lazyChunk("inline", () =>
+  import("./rnl-netlist-view").then((module) => ({
+    default: module.RnlNetlistView,
+  })),
 );
 
 /**
@@ -554,14 +561,22 @@ export function NetlistCodePanel({
         </div>
       </div>
       {rnl ? (
-        <RnlNetlistView
-          project={project}
-          format={format}
-          namingProfile={namingProfile}
-          rootDocumentId={rootDocumentId}
-          externalLinksEnabled={externalLinksEnabled}
-          onOpenExternalLink={onOpenExternalLink}
-        />
+        <Suspense
+          fallback={
+            <div className="rnl-netlist" aria-label="RNL netlist">
+              <p className="netlist-edit-hint">Writing RNL…</p>
+            </div>
+          }
+        >
+          <RnlNetlistView
+            project={project}
+            format={format}
+            namingProfile={namingProfile}
+            rootDocumentId={rootDocumentId}
+            externalLinksEnabled={externalLinksEnabled}
+            onOpenExternalLink={onOpenExternalLink}
+          />
+        </Suspense>
       ) : (
         <div
           className="netlist-code-viewport"
