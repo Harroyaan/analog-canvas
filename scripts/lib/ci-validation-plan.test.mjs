@@ -6,6 +6,7 @@ import {
   browserShardMatrix,
   countSpecTests,
   formatCiValidationPlan,
+  locateSpecTest,
   planCiValidation,
 } from "./ci-validation-plan.mjs";
 import { loadGateCatalog, planValidation } from "./validation-gates.mjs";
@@ -41,6 +42,27 @@ function ciPlan(paths, options) {
   return planCiValidation(planValidation(paths, catalog), options);
 }
 
+const properties = "apps/editor/e2e/component-property-workflows.spec.ts";
+const netlist = "apps/editor/e2e/netlist-workflows.spec.ts";
+const conversion = "apps/editor/e2e/netlist-conversion.spec.ts";
+const rnl = "apps/editor/e2e/rnl-interchange.spec.ts";
+
+// The browser smoke for unmapped product paths: crash recovery and two
+// component-insert cases located by their titles.
+const placementSmoke = locateSpecTest(
+  "apps/editor/e2e/component-insert.spec.ts",
+  "a part set down beside a pin is pulled onto it and connects",
+);
+const newCircuitSmoke = locateSpecTest(
+  "apps/editor/e2e/component-insert.spec.ts",
+  "new circuits open Library and Netlist, keep the saved preference, and mirror Library annotations in the menu",
+);
+const fallbackSpecs = [
+  placementSmoke,
+  newCircuitSmoke,
+  "apps/editor/e2e/runtime-crash-safety.spec.ts",
+];
+
 describe("CI validation planning", () => {
   it("sizes the browser shards to the tests selected, from two to eight", () => {
     const shards = (counts, mode = "focused") =>
@@ -48,14 +70,27 @@ describe("CI validation planning", () => {
         { mode, e2eArgs: Object.keys(counts) },
         (spec) => counts[spec] ?? 0,
       );
-    // A small selection still uses two runners.
+    // A small selection still uses two runners ...
     expect(shards({ "a.spec.ts": 10 })).toEqual(["1/2", "2/2"]);
+    // ... and a few tests, such as the fallback smoke, one.
+    expect(shards({ "a.spec.ts": 8 })).toEqual(["1/1"]);
+    expect(browserShardMatrix(ciPlan(["worker/arena.ts"]))).toEqual(["1/1"]);
     // About 25 tests to a shard: 43 + 73 + 5 selected tests take five.
     expect(
       shards({ "a.spec.ts": 43, "b.spec.ts": 73, "c.spec.ts": 5 }),
     ).toEqual(["1/5", "2/5", "3/5", "4/5", "5/5"]);
     // Arguments that are not spec files select nothing to count.
-    expect(shards({ "--grep=x": 500 })).toHaveLength(2);
+    expect(shards({ "--grep=x": 500, "a.spec.ts": 9 })).toHaveLength(2);
+    // A spec file and line selects one test.
+    expect(
+      browserShardMatrix(
+        {
+          mode: "fallback",
+          e2eArgs: Array.from({ length: 51 }, (_, line) => `a.spec.ts:${line}`),
+        },
+        () => 500,
+      ),
+    ).toHaveLength(3);
     // Every spec is capped at eight.
     expect(
       browserShardMatrix({ mode: "full", e2eArgs: [] }, () => 100),
@@ -231,7 +266,6 @@ describe("CI validation planning", () => {
       e2eArgs: [
         "apps/editor/e2e/component-insert.spec.ts",
         "apps/editor/e2e/component-properties-catalog.spec.ts",
-        "apps/editor/e2e/component-property-workflows.spec.ts",
         ...gallerySpecs,
       ],
     });
@@ -248,9 +282,6 @@ describe("CI validation planning", () => {
   });
 
   it("selects the extracted workflows from their production owners and shared dependencies", () => {
-    const properties = "apps/editor/e2e/component-property-workflows.spec.ts";
-    const netlist = "apps/editor/e2e/netlist-workflows.spec.ts";
-    const conversion = "apps/editor/e2e/netlist-conversion.spec.ts";
     expect(
       ciPlan(["apps/editor/src/features/properties/component-property-code.ts"])
         .e2eArgs,
@@ -273,21 +304,71 @@ describe("CI validation planning", () => {
       for (const spec of editingSpecs)
         expect(plan.e2eArgs, path).not.toContain(spec);
     }
+    // Editor-wide code is left to the editing workflows; the property and
+    // netlist workflows run for their own features and fixtures.
     for (const path of [
       "apps/editor/src/app/App.tsx",
       "apps/editor/src/canvas/editor-canvas-surface.tsx",
       "apps/editor/src/features/text-editing/canvas-text-editor.tsx",
       "apps/editor/src/features/drafting/drafting-properties-panel.tsx",
-      "apps/editor/e2e/manual-editor-fixtures.ts",
+    ]) {
+      const plan = ciPlan([path]);
+      expect(plan.mode, path).toBe("focused");
+      expect(plan.e2eArgs, path).toEqual(expect.arrayContaining(editingSpecs));
+      for (const spec of [properties, netlist, conversion, rnl])
+        expect(plan.e2eArgs, path).not.toContain(spec);
+    }
+    const fixturePlan = ciPlan(["apps/editor/e2e/manual-editor-fixtures.ts"]);
+    expect(fixturePlan.mode).toBe("focused");
+    expect(fixturePlan.e2eArgs).toEqual(
+      expect.arrayContaining([
+        properties,
+        netlist,
+        conversion,
+        ...editingSpecs,
+      ]),
+    );
+    for (const path of [
+      "apps/editor/src/app/editor-properties-dock.tsx",
+      "apps/editor/src/features/instance-display/instance-parameter-display.ts",
+      "apps/editor/src/features/component-insert/component-parameters.ts",
+    ])
+      expect(ciPlan([path]).e2eArgs, path).toContain(properties);
+  });
+
+  it("runs the RNL workflows alone for the RNL package and its fixtures", () => {
+    for (const path of [
+      "packages/rnl/src/place.ts",
+      "apps/editor/e2e/label-census.ts",
+      "apps/editor/e2e/bipolar-project.ts",
+    ]) {
+      const plan = ciPlan([path]);
+      expect(plan.mode, path).toBe("focused");
+      expect(plan.e2eArgs, path).toEqual([rnl]);
+    }
+    const panel = ciPlan([
+      "apps/editor/src/features/netlist-export/netlist-code-panel.tsx",
+    ]);
+    expect(panel.e2eArgs).toEqual(
+      expect.arrayContaining([properties, netlist, conversion, rnl]),
+    );
+    // The editor glue only these workflows drive: File > Import > RNL… and
+    // File > Export > Netlist… (menus), Netlist Settings… (chrome) and the
+    // RNL file input (file menu).
+    for (const [path, specs] of [
+      ["apps/editor/src/app/editor-menus.tsx", [netlist, conversion, rnl]],
+      ["apps/editor/src/app/editor-app-chrome.tsx", [netlist, conversion]],
+      [
+        "apps/editor/src/features/editor-shell/file-command-menu.tsx",
+        [netlist, conversion, rnl],
+      ],
     ]) {
       const plan = ciPlan([path]);
       expect(plan.mode, path).toBe("focused");
       expect(plan.e2eArgs, path).toEqual(
         expect.arrayContaining([
-          properties,
-          netlist,
-          conversion,
-          ...editingSpecs,
+          ...specs,
+          "apps/editor/e2e/netlist-code-edit.spec.ts",
         ]),
       );
     }
@@ -400,7 +481,8 @@ describe("CI validation planning", () => {
     ]);
     expect(plan.mode).toBe("fallback");
     expect(plan.e2eArgs).toEqual([
-      "apps/editor/e2e/component-insert.spec.ts",
+      placementSmoke,
+      newCircuitSmoke,
       ...gallerySpecs,
       "apps/editor/e2e/runtime-crash-safety.spec.ts",
     ]);
@@ -415,13 +497,7 @@ describe("CI validation planning", () => {
       ["apps/editor/e2e/component-property-workflows.spec.ts"],
     ],
     ["worker/gallery.ts", gallerySpecs],
-    [
-      "apps/editor/src/lib/new-helper.ts",
-      [
-        "apps/editor/e2e/component-insert.spec.ts",
-        "apps/editor/e2e/runtime-crash-safety.spec.ts",
-      ],
-    ],
+    ["apps/editor/src/lib/new-helper.ts", fallbackSpecs],
   ])(
     "does not let non-shipping tests widen browser impact for %s",
     (path, specs) => {
@@ -447,18 +523,54 @@ describe("CI validation planning", () => {
     );
   });
 
+  it("runs crash recovery and two located smoke cases for unmapped engine, worker and netlist paths", () => {
+    for (const path of [
+      "packages/edit-engine/src/transaction.ts",
+      "packages/derived/src/connection-graph.ts",
+      "worker/arena.ts",
+      "packages/netlist/src/ir.ts",
+      "packages/spice/src/expression.ts",
+    ]) {
+      const plan = ciPlan([path]);
+      expect(plan.mode, path).toBe("fallback");
+      expect(plan.e2eArgs, path).toEqual(fallbackSpecs);
+    }
+  });
+
+  it("locates a smoke case by its title and refuses a missing one", () => {
+    const source = [
+      'import { test } from "@playwright/test";',
+      "",
+      'test("first", async () => {});',
+      'test("second case", async ({',
+      "  page,",
+      "}) => {});",
+    ].join("\r\n");
+    expect(locateSpecTest("a.spec.ts", "second case", () => source)).toBe(
+      "a.spec.ts:4",
+    );
+    expect(() => locateSpecTest("a.spec.ts", "second", () => source)).toThrow(
+      'a.spec.ts declares no test "second"',
+    );
+  });
+
   it("deduplicates fallback specs already selected by a mixed batch", () => {
     const plan = ciPlan([
       "apps/editor/e2e/component-insert.spec.ts",
       "apps/editor/e2e/gallery-wall.spec.ts",
       "apps/editor/src/lib/new-helper.ts",
     ]);
+    expect(plan.mode).toBe("fallback");
     expect(plan.e2eArgs).toContain("apps/editor/e2e/gallery-wall.spec.ts");
+    expect(plan.e2eArgs).toContain(
+      "apps/editor/e2e/runtime-crash-safety.spec.ts",
+    );
+    // The whole spec runs, so its single cases are not added again.
     expect(
-      plan.e2eArgs.filter(
-        (arg) => arg === "apps/editor/e2e/component-insert.spec.ts",
+      plan.e2eArgs.filter((arg) =>
+        arg.startsWith("apps/editor/e2e/component-insert.spec.ts"),
       ),
-    ).toHaveLength(1);
+    ).toEqual(["apps/editor/e2e/component-insert.spec.ts"]);
   });
 
   it("keeps every browser spec reachable through a focused route", async () => {
