@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { loadGalleryFeed } from "./gallery-client";
 import { isReservedGalleryId } from "./gallery-reserved-ids";
+import { isRequestFailure } from "./request-failure";
 
 describe("reserved Gallery ids", () => {
   it("are short ids of a fixed rule, never a UUID or a dataset's id", () => {
@@ -27,7 +28,9 @@ describe("reserved Gallery ids", () => {
       }),
     );
     expect(
-      feed && typeof feed === "object" && feed.entries.map(({ id }) => id),
+      typeof feed === "object" &&
+        !isRequestFailure(feed) &&
+        feed.entries.map(({ id }) => id),
     ).toEqual(["a2b3c4d5e6", "f7g8h9j2k3"]);
   });
 });

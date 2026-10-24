@@ -17,6 +17,8 @@ import {
 } from "./gallery-feed-count-panel";
 import { GalleryQuickFilters } from "./gallery-feed-quick-filters";
 import { GalleryWallTile } from "./gallery-feed-tile";
+import { GalleryWallEmpty } from "./gallery-feed-empty";
+import { createDefaultGalleryFilters } from "../gallery-filters";
 import { GalleryTileMenu } from "./gallery-owner-controls";
 
 import {
@@ -27,6 +29,7 @@ import {
   removeGalleryAuthorEntry,
   type GalleryFeedEntry,
 } from "../gallery-client";
+import { isRequestFailure, OFFLINE_FAILURE } from "../request-failure";
 
 describe("Gallery landing preload", () => {
   const defaultFilters = {
@@ -88,24 +91,35 @@ function fetchStatus(status: number): typeof fetch {
     })) as typeof fetch;
 }
 
-function fetchReturning(payload: unknown, ok = true): typeof fetch {
+function fetchReturning(payload: unknown): typeof fetch {
   return (async () =>
     new Response(JSON.stringify(payload), {
-      status: ok ? 200 : 502,
+      status: 200,
       headers: { "content-type": "application/json" },
     })) as typeof fetch;
 }
 
 /** A page, or null for anything that is not one. */
 const pageOf = (result: Awaited<ReturnType<typeof loadGalleryFeed>>) =>
-  typeof result === "string" ? null : result;
+  typeof result === "string" || isRequestFailure(result) ? null : result;
 
 describe("loadGalleryFeed", () => {
   it("says a signed-out reader must sign in instead of calling the Gallery unavailable", async () => {
     expect(await loadGalleryFeed(fetchStatus(401))).toBe(
       GALLERY_SIGN_IN_REQUIRED,
     );
-    expect(await loadGalleryFeed(fetchStatus(503))).toBeNull();
+    expect(await loadGalleryFeed(fetchStatus(503))).toEqual({
+      failure: "server-error",
+      message: "The server could not answer (503). Try again later.",
+    });
+  });
+
+  it("reads a thrown fetch as offline", async () => {
+    expect(
+      await loadGalleryFeed((async () => {
+        throw new TypeError("Failed to fetch");
+      }) as typeof fetch),
+    ).toBe(OFFLINE_FAILURE);
   });
 
   it("gives a signed-out visitor's first circuits to the landing wall only", async () => {
@@ -257,14 +271,6 @@ describe("loadGalleryFeed", () => {
         )?.authors,
       ).toBeUndefined();
     }
-  });
-
-  it("degrades to null on errors and non-OK responses", async () => {
-    expect(await loadGalleryFeed(fetchReturning({}, false))).toBeNull();
-    const throwing = (async () => {
-      throw new Error("offline");
-    }) as unknown as typeof fetch;
-    expect(await loadGalleryFeed(throwing)).toBeNull();
   });
 });
 
@@ -515,6 +521,40 @@ describe("GalleryFeed", () => {
       markup.indexOf('data-testid="gallery-analytics"'),
     );
     expect(markup).toContain('data-testid="gallery-loading"');
+  });
+});
+
+describe("GalleryWallEmpty", () => {
+  const empty = (
+    state: Parameters<typeof GalleryWallEmpty>[0]["state"],
+    filters = createDefaultGalleryFilters(),
+  ) =>
+    renderToStaticMarkup(
+      createElement(GalleryWallEmpty, {
+        state,
+        filters,
+        narrowedName: null,
+        signedIn: true,
+        datasetName: null,
+      }),
+    );
+
+  it("says why a filtered wall could not load instead of claiming nothing matches (2026-10-23)", () => {
+    const filtered = {
+      ...createDefaultGalleryFilters(),
+      tags: ["ldo"],
+      attention: true,
+    };
+    const markup = empty(
+      { status: "unavailable", failure: "Too many requests.", entries: [] },
+      filtered,
+    );
+    expect(markup).toContain('data-testid="gallery-unavailable"');
+    expect(markup).toContain("Too many requests.");
+    expect(markup).not.toContain("No circuits match");
+    expect(empty({ status: "ready", entries: [] }, filtered)).toContain(
+      "No circuits match the selected tags.",
+    );
   });
 });
 

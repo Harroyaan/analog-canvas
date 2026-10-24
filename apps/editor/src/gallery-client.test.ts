@@ -6,6 +6,7 @@ import {
   galleryQueryFromFilters,
   galleryFeedQueryKey,
   galleryPreviewUrl,
+  GALLERY_ENTRY_MISSING,
   loadGalleryEntry,
   loadGalleryFeed,
   loadGalleryTagSummary,
@@ -18,6 +19,7 @@ import {
   type GalleryFeedEntry,
 } from "./gallery-client";
 import { resolveGalleryFilters } from "./gallery-filters";
+import { OFFLINE_FAILURE, requestFailureOf } from "./request-failure";
 
 it("loads the linked wall's complete query, including source, text and both negative filters", async () => {
   const filters = resolveGalleryFilters(
@@ -228,7 +230,7 @@ describe("Gallery preview caching", () => {
     expect(loaded[0]).toBe(galleryPreviewUrl("e0", "r0"));
     // A signed-out or failed first page starts nothing.
     warmGalleryPreviews(GALLERY_SIGN_IN_REQUIRED, (url) => loaded.push(url));
-    warmGalleryPreviews(null, (url) => loaded.push(url));
+    warmGalleryPreviews(OFFLINE_FAILURE, (url) => loaded.push(url));
     expect(loaded).toHaveLength(WARMED_GALLERY_PREVIEWS);
   });
 
@@ -372,6 +374,26 @@ describe("one Gallery tile", () => {
     expect(fetchLike).toHaveBeenCalledWith(
       "/api/gallery/entry-1?summary=1",
       expect.anything(),
+    );
+  });
+
+  it("calls a link's circuit removed only when the wall does not hold it", async () => {
+    const answer = (response: Response) =>
+      loadGalleryEntry(async () => response, "entry-1");
+    expect(await answer(new Response("", { status: 404 }))).toBe(
+      GALLERY_ENTRY_MISSING,
+    );
+    expect(
+      await answer(
+        Response.json({ status: "withdrawn", entry: { id: "entry-1" } }),
+      ),
+    ).toBe(GALLERY_ENTRY_MISSING);
+    const blocked = Response.json(
+      { error: "account-blocked" },
+      { status: 403 },
+    );
+    expect(await answer(blocked.clone())).toEqual(
+      await requestFailureOf(blocked),
     );
   });
 });
