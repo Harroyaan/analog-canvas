@@ -13,6 +13,7 @@ import {
   type AgentSessionNamespaceLike,
 } from "./agent-session";
 import { refuseApiFlood, type ApiRateLimitEnv } from "./api-rate-limit";
+import { serveAsset } from "./static-assets";
 import { forgetEarlierOpens, routeGalleryRequest } from "./gallery";
 import {
   galleryReadableDocument,
@@ -219,7 +220,7 @@ async function servePublicDocument(
   request: Request,
   env: Env,
 ): Promise<Response> {
-  const response = await serveAsset(request, env);
+  const response = await serveAsset(request, env.ASSETS);
   if (
     request.method !== "GET" ||
     response.status !== 200 ||
@@ -248,58 +249,4 @@ async function servePublicDocument(
     "public, max-age=60, stale-while-revalidate=300",
   );
   return new Response(html, { status: response.status, headers });
-}
-
-/**
- * Serve a static asset, and let a missing one be missing.
- *
- * The boundary, which is the thing an earlier attempt did not draw: a path
- * under `/assets/` names a CONTENT-HASHED FILE. The name is a promise about
- * the bytes behind it, so if those bytes are gone the honest answer is 404.
- * Every other path is a CLIENT ROUTE — `/editor`, `/g/<id>` — which never had
- * a file behind it, and whose miss is answered with the shell so the app can
- * boot and route it.
- *
- * The asset layer cannot tell them apart: `not_found_handling:
- * single-page-application` answers both with index.html at status 200. That
- * is right for a route and wrong for an asset, and it is the bug a browser
- * reports as "Failed to fetch dynamically imported module" after a redeploy
- * retires a chunk name. So `/assets/*` runs the Worker first, and the shell
- * arriving where a script was requested is recognised and turned into a 404.
- *
- * Detection is by content type rather than by comparing bytes: a real file
- * under /assets/ is script, style, font or image, and never text/html.
- */
-async function serveAsset(request: Request, env: Env): Promise<Response> {
-  const response = await env.ASSETS.fetch(request);
-  const path = new URL(request.url).pathname;
-  if (!path.startsWith("/assets/")) return response;
-  const isShellFallback = (response.headers.get("content-type") ?? "")
-    .toLowerCase()
-    .includes("text/html");
-  if (!isShellFallback) {
-    // Only successful content-hashed build assets are immutable. Shells,
-    // errors and explicitly private responses keep their policy.
-    const policy = response.headers.get("cache-control") ?? "";
-    if (
-      response.status === 200 &&
-      /\/[\w.-]+-[\w-]{8,}\.[\w]+$/.test(path) &&
-      !/\b(no-store|private)\b/i.test(policy) &&
-      !response.headers.has("set-cookie")
-    ) {
-      const headers = new Headers(response.headers);
-      headers.set("cache-control", "public, max-age=31536000, immutable");
-      return new Response(response.body, { status: response.status, headers });
-    }
-    return response;
-  }
-  return new Response(`Not found: ${path}`, {
-    status: 404,
-    headers: {
-      "content-type": "text/plain; charset=utf-8",
-      // A retired name must not be cached as anything, least of all as a
-      // 404 that outlives the next deploy that might reuse it.
-      "cache-control": "no-store",
-    },
-  });
 }

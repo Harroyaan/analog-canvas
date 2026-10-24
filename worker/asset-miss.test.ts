@@ -142,3 +142,33 @@ describe("hashed asset HTTP caching", () => {
     expect(response.headers.get("cache-control")).toBe(policy);
   });
 });
+
+// The brotli path itself runs in workerd (static-assets.test.ts); these pin
+// which requests never cost the asset layer a sibling lookup.
+describe("brotli sibling lookups", () => {
+  const requested: string[] = [];
+  const env = {
+    ASSETS: {
+      fetch: async (request: Request) => {
+        requested.push(`${request.method} ${new URL(request.url).pathname}`);
+        return new Response("body", {
+          headers: { "content-type": "text/javascript" },
+        });
+      },
+    },
+  } as unknown as Parameters<typeof workerEntry.fetch>[1];
+
+  it.each([
+    ["/assets/App-abcdefgh.js", { "accept-encoding": "gzip, deflate" }],
+    ["/assets/font-abcdefgh.woff2", { "accept-encoding": "br" }],
+    ["/assets/plain.js", { "accept-encoding": "br" }],
+    ["/editor", { "accept-encoding": "br" }],
+  ])("%s with %o asks for the file alone", async (path, headers) => {
+    requested.length = 0;
+    await workerEntry.fetch(
+      new Request(`https://example.test${path}`, { headers }),
+      env,
+    );
+    expect(requested).toEqual([`GET ${path}`]);
+  });
+});
