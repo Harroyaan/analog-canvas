@@ -49,7 +49,12 @@ import {
   type RnlSymbolDefinition,
 } from "./block-symbols.js";
 import { draftingLayer, draftingShapes, drawingGroup } from "./drawing-ops.js";
-import { composeOrient, rnlOrient, type RnlOrient } from "./orientation.js";
+import {
+  composeOrient,
+  inverseOrient,
+  rnlOrient,
+  type RnlOrient,
+} from "./orientation.js";
 import {
   AC_UNITS_PER_RNL_UNIT,
   rnlPlace,
@@ -58,7 +63,12 @@ import {
 } from "./place.js";
 import { rnlName } from "./rnl-name.js";
 import type { RnlShape } from "./shapes.js";
-import { rnlSymbolFor, terminalOfPin, type RnlSymbol } from "./symbol-map.js";
+import {
+  RNL_SYMBOLS,
+  rnlSymbolFor,
+  terminalOfPin,
+  type RnlSymbol,
+} from "./symbol-map.js";
 import { symbolForCall } from "./call-symbols.js";
 import { inlineRnlDefinition } from "./inline-symbols.js";
 import { plainLines, rnlTextLines, type RnlRun } from "./text.js";
@@ -753,6 +763,32 @@ function exportCell(
       ...paint,
       ...where,
     });
+    // The symbol the part is drawn as, where RNL draws it as another one
+    // the import would take instead: an op-amp flipped top to bottom is the
+    // op-amp with its inputs swapped, unflipped (Canvas 0.4).
+    if (
+      symbol &&
+      orient?.startsWith("M") &&
+      where.orient &&
+      RNL_SYMBOLS.some(
+        (other) =>
+          other.symbol === symbol.symbol &&
+          other.ac !== null &&
+          other.ac !== instance.symbolId &&
+          !composeOrient(where.orient!, inverseOrient(other.orient)).startsWith(
+            "M",
+          ),
+      )
+    ) {
+      packages.add(AC_PACKAGE);
+      ops.push({
+        level,
+        op: "add-usage",
+        definition: "$CANVAS_VARIANT",
+        attach: { part: object },
+        params: { symbol: instance.symbolId },
+      });
+    }
     // The part's own name, where the netlist spells it otherwise: SPICE
     // starts a subcircuit call's card with X, so M1 prints as XM1.
     if (instance.reference && instance.reference !== reference) {

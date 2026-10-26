@@ -134,7 +134,10 @@ the RNL language and its runtime belong to rnl.
   background paint is not written (`RNL_BACKGROUND_NOT_EXPORTED`).
 - What only the editor keeps is written with the meaning-only definitions of
   `analog-canvas-extensions` 0.4, which draw nothing: a part's name where the
-  card spells it otherwise (`$CANVAS_NAME`, SPICE's `XM1` for M1), in each
+  card spells it otherwise (`$CANVAS_NAME`, SPICE's `XM1` for M1), the
+  variant a part is drawn as where the import would read the other one of
+  two that RNL draws alike (`$CANVAS_VARIANT`, since 0.4: an op-amp flipped
+  top to bottom, not the inputs-swapped one), in each
   Cell's own record how the Cell sets names in labels and draws its wire
   crossings (`$CANVAS_TYPESETTING` on `#`, `crossings="hop"` since 0.3), each
   setting other than the editor's default, none included, and
@@ -212,6 +215,7 @@ the RNL language and its runtime belong to rnl.
     it is the same kind of device and its own netlist order prints each pin
     at the same place; the part's pins take the symbol's names;
     a symbol two Analog Canvas variants draw, one flipped, reads back as the
+    variant the file names (`$CANVAS_VARIANT`, since 0.4), else as the
     variant that needs no mirror: `$OPAMP_5TERM` turned `MX` becomes the
     default op-amp, unturned the inputs-swapped one; RNL's standard 4-input
     gates read back as Analog Canvas's own, their wires ending at its pins;
