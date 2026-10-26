@@ -1177,6 +1177,7 @@ function applyLevel(
       continue;
     }
     if (object.definition === "$CANVAS_LABEL") continue; // read with the labels
+    if (object.definition === "$CANVAS_TYPOGRAPHY") continue; // with the texts
     if (object.definition === "$CANVAS_PARAMETER_TEXT") {
       textAgain(object);
       continue;
@@ -1952,6 +1953,19 @@ function importTexts(
         : [],
     ),
   );
+  // A drawing text's typography role, where Canvas 0.4 states it.
+  const tokenOf = new Map(
+    model.objects.flatMap((object) => {
+      const text = object.attach?.["text"];
+      const token = object.params?.["token"];
+      return object.kind === "usage" &&
+        object.definition === "$CANVAS_TYPOGRAPHY" &&
+        typeof text === "string" &&
+        (token === "caption" || token === "body" || token === "label")
+        ? [[text, token] as const]
+        : [];
+    }),
+  );
   /** Undefined where the drawing does not say, null for its own text. */
   const stated = (text: RnlTextView) => {
     if (!canvasWritten) return undefined;
@@ -2275,6 +2289,7 @@ function importTexts(
     // Anything else is a drawing text, bold unless RNL sets it plain.
     document.drafting ??= { objects: [] };
     const bold = text.style["bold"] === true || boldThroughout(text.lines);
+    const token = tokenOf.get(text.id);
     document.drafting.objects.push({
       id: deriveStableId(
         "drafting",
@@ -2290,6 +2305,7 @@ function importTexts(
       content,
       alignment,
       rotation,
+      ...(token ? { typographyToken: token } : {}),
       ...(bold && !text.style["italic"] && !color.textColor && !text.size
         ? {}
         : {
@@ -2297,7 +2313,7 @@ function importTexts(
               ...(bold ? {} : { weight: "normal" as const }),
               ...(text.style["italic"] === true ? { italic: true } : {}),
               ...(color.textColor ? { color: color.textColor } : {}),
-              ...scaled(text.size, richTextMetrics(profile).fontSize),
+              ...scaled(text.size, richTextMetrics(profile, token).fontSize),
             },
           }),
     });
@@ -2673,6 +2689,9 @@ function regroupDrawings(
           content: text.content,
           alignment: text.alignment,
           rotation: text.rotation,
+          ...(text.typographyToken
+            ? { typographyToken: text.typographyToken }
+            : {}),
           target: free(last),
           ...(Object.keys(style).length ? { styleOverride: style } : {}),
         };

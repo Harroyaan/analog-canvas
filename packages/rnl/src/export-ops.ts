@@ -1128,6 +1128,19 @@ function exportTexts(
       params,
     });
   };
+  // A drawing text's typography role, which RNL has no form for, on the
+  // text, named for it (Canvas 0.4); its size is written as well.
+  const typeset = (text: string, token: string | undefined) => {
+    if (!token) return;
+    context.packages.add(AC_PACKAGE);
+    ops.push({
+      level,
+      op: "add-usage",
+      definition: "$CANVAS_TYPOGRAPHY",
+      attach: { text },
+      params: { token },
+    });
+  };
   const write = (
     id: StableId,
     text: Parameters<typeof rnlTextLines>[0],
@@ -1357,7 +1370,6 @@ function exportTexts(
       if (object.styleOverride?.italic) style.italic = true;
       if (object.styleOverride?.color)
         style.textcolor = object.styleOverride.color;
-      if (object.typographyToken) drawings.push(object.id);
       write(object.id, object.content, geometry.rotation, {
         ...named("text"),
         at: toRnlPoint(geometry.textPosition),
@@ -1371,6 +1383,7 @@ function exportTexts(
         ),
         ...(Object.keys(style).length ? { style } : {}),
       });
+      typeset(`${group}_text`, object.typographyToken);
       continue;
     }
     if (object.kind !== "text") {
@@ -1387,15 +1400,17 @@ function exportTexts(
       object.anchor,
       routing,
     );
-    if (object.typographyToken) drawings.push(object.id);
     // Analog Canvas draws drawing text bold unless it is set plain.
     const style: Record<string, string | boolean> = {};
     if (object.styleOverride?.weight !== "normal") style.bold = true;
     if (object.styleOverride?.italic) style.italic = true;
     if (object.styleOverride?.color)
       style.textcolor = object.styleOverride.color;
+    const name =
+      named(null).name ??
+      (object.typographyToken ? nextName("text") : undefined);
     write(object.id, object.content, anchor.rotation + object.rotation, {
-      ...named(null),
+      ...(name ? { name } : {}),
       at: toRnlPoint(anchor.position),
       halign: object.alignment,
       // On an object, or between polarity marks, a drawing text is centred
@@ -1413,6 +1428,7 @@ function exportTexts(
       ),
       ...(Object.keys(style).length ? { style } : {}),
     });
+    if (name) typeset(name, object.typographyToken);
   }
 
   const say = (code: string, ids: StableId[], message: string) => {
@@ -1442,7 +1458,7 @@ function exportTexts(
   say(
     "RNL_DRAWING_NOT_EXPORTED",
     drawings,
-    "drawing objects keep only part of their look: a floating symbol with no RNL symbol is left out, and a typography token is written as its size",
+    "drawing objects keep only part of their look: a floating symbol with no RNL symbol is left out",
   );
 }
 
