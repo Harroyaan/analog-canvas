@@ -172,7 +172,33 @@ describe("the generic diode model (#1310)", () => {
     fromImport.source.files[0]!.content!.text =
       "* .model DIODE D(IS=2e-14)\n.model DIODE_FAST D(IS=2e-14)\n";
     expect(spice(fromImport).file.text).toContain(CARD);
+    // The author's card that starts as the stand-in does and goes on.
+    fromImport.source.files[0]!.content!.text =
+      "D1 anode cathode DIODE\n.model DIODE D(IS=1e-14 N=1\n+ RS=10)\n";
+    expect(spice(fromImport).file.text).not.toContain(".model");
   });
+
+  it.each([
+    CARD,
+    "model DIODE diode is=1e-14 n=1",
+    // As the Spectre import converts that statement to SPICE.
+    ".model DIODE d is=1e-14 n=1",
+  ])(
+    "carries the card again where the imported netlist holds only the one the export wrote, %s (#1789)",
+    (card) => {
+      const fromImport = diodeProject([{ id: "d1", reference: "D1" }]);
+      fromImport.source.files.push({
+        id: "deck",
+        path: "deck.cir",
+        hash: "deck",
+        content: {
+          text: `D1 anode cathode DIODE\n${card}\n`,
+          encoding: "utf-8",
+        },
+      });
+      expect(spice(fromImport).file.text).toContain(CARD);
+    },
+  );
 
   it("prints a native Spectre diode stand-in for export", () => {
     const result = createDesignNetlistExport(
