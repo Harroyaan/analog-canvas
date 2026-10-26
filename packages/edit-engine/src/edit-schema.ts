@@ -394,6 +394,11 @@ const SetPresentationStyleEditSchema = z.strictObject({
    * returns to Metropolis, "serif" sets the Times-style face.
    */
   textFace: z.enum(["serif"]).nullable().optional(),
+  /**
+   * How unconnected wire crossings draw: omitted leaves it, `null` returns
+   * to plain crossings, "hop" arcs the horizontal wire over the vertical.
+   */
+  crossingStyle: z.enum(["hop"]).nullable().optional(),
 });
 const SetCellSymbolPresentationEditSchema = z.strictObject({
   kind: z.literal("set_cell_symbol_presentation"),

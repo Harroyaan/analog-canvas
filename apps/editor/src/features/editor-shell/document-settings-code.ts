@@ -17,8 +17,12 @@ export interface CanvasPreferenceCodeValue {
 /** The one font of every text on the canvas and in its exports (#1725). */
 export type DocumentFontCode = "metropolis" | "serif";
 
+/** How wire crossings that are not connections draw on the canvas. */
+export type DocumentCrossingsCode = "plain" | "hop";
+
 export interface DocumentSettingsCodeValue {
   font: DocumentFontCode;
+  crossings: DocumentCrossingsCode;
   appearance: Record<keyof StyleOverrides, number>;
   bulkDefaults: {
     nmos: string;
@@ -81,6 +85,7 @@ export function documentSettingsCodeValue(
   };
   return {
     font: document.presentation.textFace ?? "metropolis",
+    crossings: document.presentation.crossingStyle ?? "plain",
     appearance: styleOverrideDraft(document.presentation.styleOverrides),
     bulkDefaults: {
       nmos: bulkValue("nmos"),
@@ -139,6 +144,7 @@ export function defaultDocumentSettingsCode(
   return serializeDocumentSettingsCode({
     ...current,
     font: "metropolis",
+    crossings: "plain",
     appearance: Object.fromEntries(
       STYLE_KNOBS.map((knob) => [knob.key, 1]),
     ) as DocumentSettingsCodeValue["appearance"],
@@ -185,6 +191,7 @@ function parseSettingsCode(
     raw,
     [
       ...(raw.font !== undefined ? ["font"] : []),
+      ...(raw.crossings !== undefined ? ["crossings"] : []),
       "appearance",
       "bulkDefaults",
       "canvas",
@@ -196,6 +203,10 @@ function parseSettingsCode(
   const font = raw.font ?? document.presentation.textFace ?? "metropolis";
   if (font !== "metropolis" && font !== "serif")
     return { ok: false, message: 'font must be "metropolis" or "serif"' };
+  const crossings =
+    raw.crossings ?? document.presentation.crossingStyle ?? "plain";
+  if (crossings !== "plain" && crossings !== "hop")
+    return { ok: false, message: 'crossings must be "plain" or "hop"' };
 
   if (!isRecord(raw.appearance))
     return { ok: false, message: "appearance must be an object" };
@@ -329,6 +340,7 @@ function parseSettingsCode(
     ok: true,
     value: {
       font,
+      crossings,
       appearance,
       bulkDefaults,
       labels: {

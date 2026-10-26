@@ -37,6 +37,7 @@ const canvas: CanvasPreferenceCodeValue = {
 function editableValue(): DocumentSettingsCodeValue {
   return {
     font: "metropolis",
+    crossings: "plain",
     appearance: {
       fontScale: 1,
       wireStrokeScale: 1,
@@ -306,6 +307,7 @@ describe("document Style code", () => {
     document.nets.push({ id: "net-ground", terminals: [] });
     const value = editableValue();
     value.font = "serif";
+    value.crossings = "hop";
     value.appearance.fontScale = 1.5;
     value.bulkDefaults.nmos = "net-ground";
     value.canvas = {
@@ -330,8 +332,19 @@ describe("document Style code", () => {
     ).toEqual({ ok: true, value: { ...editableValue(), font: "serif" } });
   });
 
+  it("keeps the wire crossings when pasted code leaves them out", () => {
+    const document = createEmptyDocument("document-main", "Main");
+    document.presentation.crossingStyle = "hop";
+    const { crossings: _crossings, ...withoutCrossings } = editableValue();
+
+    expect(
+      parseDocumentSettingsCode(JSON.stringify(withoutCrossings), document),
+    ).toEqual({ ok: true, value: { ...editableValue(), crossings: "hop" } });
+  });
+
   it.each([
     ["font", "times", 'must be "metropolis" or "serif"'],
+    ["crossings", "bridge", 'must be "plain" or "hop"'],
     ["appearance.fontScale", 0.49, "from 0.5 to 2"],
     ["appearance.wireStrokeScale", 2.01, "from 0.5 to 2"],
     ["canvas.annotationGrid", 2, "must be 1, 5, or 10"],
@@ -402,7 +415,7 @@ describe("document Style code", () => {
     const source = serializeDocumentSettingsCode(editableValue());
     const spans = documentSettingsCodeSpans(source, document);
 
-    expect(spans).toHaveLength(17);
+    expect(spans).toHaveLength(18);
     expect(
       spans.find((span) => span.field.path === "font")?.field.options,
     ).toEqual([
@@ -413,6 +426,18 @@ describe("document Style code", () => {
       expect.objectContaining({
         value: "serif",
         preview: { kind: "font", face: "serif" },
+      }),
+    ]);
+    expect(
+      spans.find((span) => span.field.path === "crossings")?.field.options,
+    ).toEqual([
+      expect.objectContaining({
+        value: "plain",
+        preview: { kind: "crossing", style: "plain" },
+      }),
+      expect.objectContaining({
+        value: "hop",
+        preview: { kind: "crossing", style: "hop" },
       }),
     ]);
     expect(

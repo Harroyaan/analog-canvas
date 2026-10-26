@@ -161,6 +161,63 @@ describe("presentation and layout edits", () => {
     ).toBe(false);
   });
 
+  it("turns wire hops on and back to plain crossings, undoably, keeping the font", () => {
+    const history = new DocumentHistory(
+      createEmptyDocument("doc", "Presentation"),
+    );
+    const set = history.transact(
+      transaction("doc", [
+        {
+          kind: "set_presentation_style",
+          styleProfileId: "razavi-textbook-v1",
+          textFace: "serif",
+          crossingStyle: "hop",
+        },
+      ]),
+    );
+    expect(set).toMatchObject({ ok: true, applied: true });
+    expect(history.document.presentation.crossingStyle).toBe("hop");
+
+    const cleared = history.transact(
+      transaction(
+        "doc",
+        [
+          {
+            kind: "set_presentation_style",
+            styleProfileId: "razavi-textbook-v1",
+            crossingStyle: null,
+          },
+        ],
+        history.document.revision,
+      ),
+    );
+    expect(cleared).toMatchObject({ ok: true, applied: true });
+    expect(Object.hasOwn(history.document.presentation, "crossingStyle")).toBe(
+      false,
+    );
+    expect(history.document.presentation.textFace).toBe("serif");
+
+    history.transact(
+      transaction("doc", [{ kind: "undo" }], history.document.revision),
+    );
+    expect(history.document.presentation.crossingStyle).toBe("hop");
+    expect(
+      history.transact(
+        transaction(
+          "doc",
+          [
+            {
+              kind: "set_presentation_style",
+              styleProfileId: "razavi-textbook-v1",
+              crossingStyle: "bridge",
+            },
+          ],
+          history.document.revision,
+        ),
+      ).ok,
+    ).toBe(false);
+  });
+
   it("rejects out-of-range style override factors", () => {
     const document = createEmptyDocument("doc", "Presentation");
     const history = new DocumentHistory(document);

@@ -71,6 +71,22 @@ function renderPreview(preview: CanvasPropertyOptionPreview): HTMLElement {
     root.textContent = "Aa Vout";
     return root;
   }
+  if (preview.kind === "crossing") {
+    root.dataset.style = preview.style;
+    const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+    svg.setAttribute("viewBox", "0 0 32 20");
+    svg.setAttribute("aria-hidden", "true");
+    const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+    path.setAttribute(
+      "d",
+      preview.style === "hop"
+        ? "M16 2V18 M2 12H11A5 5 0 0 1 21 12H30"
+        : "M16 2V18 M2 12H30",
+    );
+    svg.append(path);
+    root.append(svg);
+    return root;
+  }
   if (preview.kind === "grid") {
     root.dataset.enabled = String(preview.enabled);
     root.dataset.spacing = String(preview.spacing);

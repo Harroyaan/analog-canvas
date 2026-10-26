@@ -255,6 +255,23 @@ export function tryParseProjectWithMetadata(
     if (sourceSchemaVersion < 75) rejectSignalMembers(parsed);
     if (sourceSchemaVersion < 76) rejectOrderedSignals(parsed);
     if (sourceSchemaVersion < 77) rejectMemberNoConnect(parsed);
+    if (
+      sourceSchemaVersion < 78 &&
+      Array.isArray(parsed.documents) &&
+      parsed.documents.some(
+        (document: unknown) =>
+          isRecord(document) &&
+          isRecord(document.presentation) &&
+          Object.hasOwn(document.presentation, "crossingStyle"),
+      )
+    )
+      throw new ProjectFormatError([
+        {
+          code: "INVALID_PROJECT",
+          message: "Wire hops require Project schema 78",
+          path: ["documents"],
+        },
+      ]);
     if (sourceSchemaVersion < 74 && hasExplicitCellBody(parsed))
       throw new ProjectFormatError([
         {
