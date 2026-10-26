@@ -1438,6 +1438,35 @@ describe("RNL round trip", () => {
     ]);
   });
 
+  it.each(["spice", "spectre"] as const)(
+    "keeps a part the author never named unnamed, which the netlist names to print it, through %s+RNL",
+    async (format) => {
+      const project = example("two-stage-op-amp");
+      const document = project.documents.find((item) =>
+        item.instances.some((instance) => instance.symbolId === "opamp"),
+      )!;
+      const opamp = document.instances.find(
+        (instance) => instance.symbolId === "opamp",
+      )!;
+      // Unnamed, it emits as its symbol's own body, with no netlist record.
+      delete opamp.reference;
+      delete opamp.netlist;
+      const { project: drawn, diagnostics } = await roundTrip(project, format);
+      expect(
+        diagnostics.filter((item) => item.code.startsWith("RNL_")),
+      ).toEqual([]);
+      const cell = drawn.documents.find(
+        (item) => item.netlist?.name === document.netlist?.name,
+      )!;
+      const opamps = cell.instances.filter((instance) =>
+        instance.symbolId.startsWith("opamp"),
+      );
+      expect(opamps).toHaveLength(1);
+      expect(opamps[0]!.reference).toBeUndefined();
+      expect(opamps[0]!.netlist).toBeUndefined();
+    },
+  );
+
   it("keeps a line style set as the editor sets one, in the shape's override (#1787)", async () => {
     const project = example("simulation-rc");
     const document = project.documents.find(
