@@ -1777,6 +1777,13 @@ function applyLevel(
     instanceOf,
     netOf,
     legNear,
+    called: project.documents.some((item) =>
+      item.instances.some(
+        (instance) =>
+          instance.netlist?.binding?.kind === "subcircuit" &&
+          instance.netlist.binding.childDocumentId === document.id,
+      ),
+    ),
   });
   for (const terminal of document.netlist?.terminals ?? [])
     for (const id of terminal.interfaceInstanceIds)
@@ -1895,6 +1902,24 @@ function applyLevel(
  * a label its symbol alone gives is left to the symbol.
  */
 /** A text's size as the scale of the size Analog Canvas gives that label. */
+/**
+ * Whether the netlist spells `name` as `printed`, its node in either dialect,
+ * where the two differ: a Greek letter spelled out, a bracket dropped.
+ */
+function spelledAs(
+  name: string,
+  printed: string,
+  scope: "local" | "global",
+): boolean {
+  return (
+    name !== printed &&
+    (["spice", "spectre"] as const).some((format) => {
+      const encoded = encodeNetName(name, scope, format);
+      return encoded.ok && encoded.token === printed;
+    })
+  );
+}
+
 function sizeScale(size: number | null, base: number) {
   const scale = size === null ? 1 : (size * AC_UNITS_PER_RNL_UNIT) / base;
   return Math.abs(scale - 1) > 1e-3
@@ -1912,6 +1937,7 @@ function importTexts(
     instanceOf,
     netOf,
     legNear,
+    called,
   }: {
     consumed: ReadonlySet<string>;
     glyphOf: ReadonlyMap<string, { instanceId: string; pinName: string }>;
@@ -1927,6 +1953,8 @@ function importTexts(
       t: number;
       normalOffset: number;
     } | null;
+    /** Whether a call meets the Cell's Pins, which it does by name. */
+    called: boolean;
   },
 ): void {
   const profile = resolveDocumentStyleProfile(document.presentation);
@@ -2131,6 +2159,15 @@ function importTexts(
     }
     if (pin && terminal && text.key === "name" && !labelled.has(pin.id)) {
       labelled.add(pin.id);
+      // A Pin's name the netlist had to spell otherwise (`SEL[3]` prints as
+      // `SEL3_`) is the name its label shows, where the netlist spells that
+      // so; only in a Cell no call meets, since a call meets Pins by name.
+      if (
+        (says === undefined || says?.bind === "port") &&
+        !called &&
+        spelledAs(shown, terminal.name, "local")
+      )
+        terminal.name = shown;
       const binding = {
         kind: "cell-terminal-name" as const,
         terminalId: terminal.id,
@@ -2218,14 +2255,9 @@ function importTexts(
     if (netId && named) {
       // A name the netlist had to spell otherwise (`φ1` prints as `phi1`)
       // is the name the label shows, where the netlist spells that so.
-      const name =
-        shown !== named.name &&
-        (["spice", "spectre"] as const).some((format) => {
-          const encoded = encodeNetName(shown, named.scope, format);
-          return encoded.ok && encoded.token === named.name;
-        })
-          ? shown
-          : named.name;
+      const name = spelledAs(shown, named.name, named.scope)
+        ? shown
+        : named.name;
       // Where the editor keeps it: on the Cell Pin it names, else on the wire
       // it stands beside, else where it stands.
       const pin = document.netlist?.terminals
