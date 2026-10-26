@@ -127,7 +127,10 @@ the RNL language and its runtime belong to rnl.
   one wire through it. A power label is written as a label on its net, named
   so the import knows it as a power label.
 - Labels are written as the text they show, styled as shown; RNL cannot style
-  part of a referenced name, so a written label does not follow a rename.
+  part of a referenced name, so a written label does not follow a rename. The
+  name label of a part the author never named, which shows nothing, is
+  written with the name the netlist gives the part, since RNL reads an empty
+  label as one taken away; RNL's own viewers show that name.
 - A part's colour (its foreground, a glyph's included) is written as its
   style (`@SET-STYLE`, `linecolor` and `textcolor`), which RNL passes on to
   the labels its part brings, as the editor gives a label its Instance's; a
@@ -274,7 +277,8 @@ the RNL language and its runtime belong to rnl.
     differ from what the binding shows anyway;
   - a part the author never named (`$CANVAS_UNNAMED`) unnamed again, with
     no netlist record, as the editor keeps one, where the netlist import
-    gave its record no parameter;
+    gave its record no parameter; its name label, written with the
+    netlist's name, is bound to the name again, and shows none;
   - a value's text the author wrote (`$CANVAS_PARAMETER_TEXT`) where it is
     the number the part has, written as Spectre writes it, or the same size
     in micrometres; it belongs to the part, so it stands whether the drawing
