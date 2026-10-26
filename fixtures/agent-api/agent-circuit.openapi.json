@@ -4744,6 +4744,19 @@
                     "type": "null"
                   }
                 ]
+              },
+              "crossingStyle": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "enum": [
+                      "hop"
+                    ]
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
               }
             },
             "required": [
@@ -11607,6 +11620,12 @@
                   "serif"
                 ]
               },
+              "crossingStyle": {
+                "type": "string",
+                "enum": [
+                  "hop"
+                ]
+              },
               "flow": {
                 "type": "object",
                 "properties": {
@@ -13122,6 +13141,12 @@
                             "type": "string",
                             "enum": [
                               "serif"
+                            ]
+                          },
+                          "crossingStyle": {
+                            "type": "string",
+                            "enum": [
+                              "hop"
                             ]
                           },
                           "flow": {

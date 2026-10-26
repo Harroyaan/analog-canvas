@@ -1,5 +1,6 @@
 import { Suspense, useMemo, type ComponentProps, type RefObject } from "react";
 
+import { CanvasCrossingsSection } from "../features/editor-shell/canvas-crossings-section";
 import { CanvasFontSection } from "../features/editor-shell/canvas-font-section";
 import { KeptDocumentStyleSection } from "../features/editor-shell/kept-document-style-section";
 import { ToolIcon } from "../features/editor-shell/tool-icon";
@@ -59,6 +60,8 @@ export interface EditorPropertiesDockProps {
   drafting: ComponentProps<typeof DraftingPropertiesPanel> | null;
   /** Shown while a text or a part is selected. */
   canvasFont: ComponentProps<typeof CanvasFontSection> | null;
+  /** Shown while a wire is selected. */
+  canvasCrossings: ComponentProps<typeof CanvasCrossingsSection> | null;
   placementTray: ComponentProps<typeof PlacementTrayPanel>;
   routeActions: ComponentProps<typeof RouteActionsSection>;
   endpointActions: ComponentProps<typeof EndpointActionsSection>;
@@ -88,6 +91,7 @@ export function EditorPropertiesDock({
   netName,
   drafting,
   canvasFont,
+  canvasCrossings,
   placementTray,
   routeActions,
   endpointActions,
@@ -214,6 +218,9 @@ export function EditorPropertiesDock({
               </Suspense>
             ) : null}
             {canvasFont ? <CanvasFontSection {...canvasFont} /> : null}
+            {canvasCrossings ? (
+              <CanvasCrossingsSection {...canvasCrossings} />
+            ) : null}
             <PlacementTrayPanel {...placementTray} />
             {!groupProperties.active ? (
               <>

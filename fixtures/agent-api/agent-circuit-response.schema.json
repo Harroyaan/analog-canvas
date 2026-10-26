@@ -1212,6 +1212,12 @@
                         "serif"
                       ]
                     },
+                    "crossingStyle": {
+                      "type": "string",
+                      "enum": [
+                        "hop"
+                      ]
+                    },
                     "flow": {
                       "type": "object",
                       "properties": {

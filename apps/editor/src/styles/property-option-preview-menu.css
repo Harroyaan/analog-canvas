@@ -169,6 +169,13 @@
   content: "";
   transform: rotate(-25deg);
 }
+.cm-property-option-preview-crossing svg {
+  width: 2rem;
+  height: 1.25rem;
+  fill: none;
+  stroke: currentcolor;
+  stroke-width: 1.6;
+}
 .cm-property-option-preview-angle {
   position: relative;
   width: 3.5rem;

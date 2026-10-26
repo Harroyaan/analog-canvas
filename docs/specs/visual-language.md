@@ -24,6 +24,15 @@ SchematicDocument + Symbol Resolver + optional bounds → validate
 - Unknown profile IDs are blocking render errors; no silent substitution.
 - Branch dots come from [confirmed contacts](connectivity-and-routing.md#derived-read-models),
   never from appearance.
+- A crossing that is not a connection draws plain. With the Document's
+  `presentation.crossingStyle: "hop"`, a horizontal run arcs over a vertical
+  run it crosses with a 4-unit semicircle above the wire, on canvas and in
+  every export. A crossing hops only at least 8 units from the horizontal
+  run's ends, 4 units inside the vertical run's, and away from every contact
+  point; a power rail never hops, and a hop overlapping the previous one on
+  its run stays plain. Hops are ink only: hit geometry, selection and
+  connectivity keep the straight centerline. Set in Canvas settings
+  (`crossings`) or beside a selected wire.
 - Ordering is deterministic by stable ID and fixed layer order. Export bounds
   are placed geometry plus an explicit integer margin; viewport bounds may
   differ.

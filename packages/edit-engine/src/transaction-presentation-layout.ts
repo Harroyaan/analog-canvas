@@ -73,6 +73,9 @@ export function applyPresentationLayoutEdit(
       }
       if (edit.textFace === null) delete draft.presentation.textFace;
       else if (edit.textFace) draft.presentation.textFace = edit.textFace;
+      if (edit.crossingStyle === null) delete draft.presentation.crossingStyle;
+      else if (edit.crossingStyle)
+        draft.presentation.crossingStyle = edit.crossingStyle;
       changedObjectIds.add(draft.id);
       return { ok: true, connectivityChanged: false };
     case "set_document_grid":

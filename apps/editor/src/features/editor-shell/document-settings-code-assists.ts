@@ -37,6 +37,27 @@ const DOCUMENT_FONT_FIELD: CanvasPropertyField = {
   help: "One font for every text on this canvas and in its SVG, PNG and PDF exports",
 };
 
+/** The canvas-wide wire crossings; a selected wire's Properties offer it too. */
+const DOCUMENT_CROSSINGS_FIELD: CanvasPropertyField = {
+  path: "crossings",
+  label: "Wire crossings",
+  kind: "choice",
+  options: [
+    {
+      value: "plain",
+      label: "Plain crossing",
+      preview: { kind: "crossing", style: "plain" },
+    },
+    {
+      value: "hop",
+      label: "Hop over",
+      preview: { kind: "crossing", style: "hop" },
+    },
+  ],
+  description: "",
+  help: "How wires that cross without connecting draw on this canvas and in its exports; a dot still marks every connection",
+};
+
 function fields(document: SchematicDocument): readonly CanvasPropertyField[] {
   const labelPreview = (
     overrides: Partial<Extract<CanvasPropertyOptionPreview, { kind: "label" }>>,
@@ -86,6 +107,7 @@ function fields(document: SchematicDocument): readonly CanvasPropertyField[] {
   };
   return [
     DOCUMENT_FONT_FIELD,
+    DOCUMENT_CROSSINGS_FIELD,
     {
       path: "labels.first_letter_italic",
       label: "First letter",

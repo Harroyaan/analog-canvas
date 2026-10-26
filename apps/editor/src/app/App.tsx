@@ -5821,7 +5821,11 @@ function WorkspaceEditor({
                         const appearanceChanged =
                           JSON.stringify(value.appearance) !==
                           JSON.stringify(current.appearance);
-                        if (appearanceChanged || value.font !== current.font) {
+                        if (
+                          appearanceChanged ||
+                          value.font !== current.font ||
+                          value.crossings !== current.crossings
+                        ) {
                           edits.push({
                             kind: "set_presentation_style",
                             styleProfileId:
@@ -5837,6 +5841,12 @@ function WorkspaceEditor({
                               ? {
                                   textFace:
                                     value.font === "serif" ? "serif" : null,
+                                }
+                              : {}),
+                            ...(value.crossings !== current.crossings
+                              ? {
+                                  crossingStyle:
+                                    value.crossings === "hop" ? "hop" : null,
                                 }
                               : {}),
                           });
@@ -6687,6 +6697,27 @@ function WorkspaceEditor({
                         if (result.ok)
                           setStatus(
                             `Canvas font: ${font === "serif" ? "Times (Liberation Serif)" : "Metropolis"}`,
+                          );
+                      },
+                    }
+                  : null
+              }
+              canvasCrossings={
+                visualSelection.routeIds.length > 0
+                  ? {
+                      crossings: document.presentation.crossingStyle ?? "plain",
+                      onChange: (crossings) => {
+                        const result = transact([
+                          {
+                            kind: "set_presentation_style",
+                            styleProfileId:
+                              document.presentation.styleProfileId,
+                            crossingStyle: crossings === "hop" ? "hop" : null,
+                          },
+                        ]);
+                        if (result.ok)
+                          setStatus(
+                            `Wire crossings: ${crossings === "hop" ? "hop over" : "plain"}`,
                           );
                       },
                     }

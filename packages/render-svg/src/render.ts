@@ -63,6 +63,7 @@ import {
   terminalMiterBridgePaths,
 } from "./route-render.js";
 import { deriveBounds } from "./scene-bounds.js";
+import { wireHopPaths } from "./wire-hops.js";
 import { escapeXml, pointList } from "./svg-markup.js";
 import {
   instanceTransform,
@@ -367,6 +368,30 @@ export function buildSvgScene(
     inkOrder.push(key);
     ink.set(key, { strokeColor, strokeWidth, dash, d: [d] });
   };
+  // Wire hops are drawn ink only: a power rail never hops, and a hop
+  // crosses only wires this drawing includes.
+  const hopPaths =
+    document.presentation.crossingStyle === "hop"
+      ? wireHopPaths(
+          new Map(
+            document.routes
+              .filter((route) => included(route.id))
+              .map((route) => [
+                route.id,
+                routingGeometry.routes.get(route.id)?.centerline ?? [],
+              ]),
+          ),
+          new Set(
+            document.routes
+              .filter(
+                (route) =>
+                  included(route.id) && !powerRailRouteIds.has(route.id),
+              )
+              .map((route) => route.id),
+          ),
+          contactEvidence.contacts.map((contact) => contact.point),
+        )
+      : new Map<string, string>();
   const routeIdentities = [...document.routes]
     .filter((route) => included(route.id))
     .sort((left, right) => left.id.localeCompare(right.id, "en"))
@@ -406,9 +431,10 @@ export function buildSvgScene(
         strokeColor,
         strokeWidth,
         dash,
-        `M ${geometry.centerline
-          .map((point) => `${point.x} ${point.y}`)
-          .join(" L ")}`,
+        hopPaths.get(route.id) ??
+          `M ${geometry.centerline
+            .map((point) => `${point.x} ${point.y}`)
+            .join(" L ")}`,
       );
       // The bridge belongs to the same paint as the Route it joins, so it
       // merges into that shape instead of being laid over it.

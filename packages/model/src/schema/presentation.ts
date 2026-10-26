@@ -151,6 +151,11 @@ export const PresentationIntentSchema = z.strictObject({
   labelFirstLetterItalic: z.boolean().optional(),
   /** The one font of all the Document's text; absent means Metropolis. */
   textFace: z.enum(["serif"]).optional(),
+  /**
+   * How a wire crossing that is not a connection draws: "hop" arcs the
+   * horizontal wire over the vertical one; absent means a plain cross.
+   */
+  crossingStyle: z.enum(["hop"]).optional(),
   flow: z
     .strictObject({
       power: z.literal("top").optional(),

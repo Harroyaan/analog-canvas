@@ -40,6 +40,7 @@ export type CanvasPropertyOptionPreview =
       rail: "VSS" | "VDD";
     }
   | { kind: "font"; face: "metropolis" | "serif" }
+  | { kind: "crossing"; style: "plain" | "hop" }
   | { kind: "grid"; enabled: boolean; spacing: 1 | 5 | 10 }
   | { kind: "angle"; mode: "free" | "45" | "orthogonal" }
   | { kind: "scroll"; mode: "auto" | "zoom" | "pan" };
