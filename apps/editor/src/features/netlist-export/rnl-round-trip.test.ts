@@ -1438,6 +1438,31 @@ describe("RNL round trip", () => {
     ]);
   });
 
+  it.each(["spice", "spectre"] as const)(
+    "keeps a Cell's name that the netlist must write otherwise, through %s+RNL",
+    async (format) => {
+      const project = example("simulation-ota");
+      const cell = project.documents.find(
+        (document) => document.id === "document-ota-5t",
+      )!;
+      cell.name = "OTA five-T";
+      cell.netlist!.name = "OTA five-T";
+      const exported = createRnlExport(project, { format });
+      if (exported.status !== "ready")
+        throw new Error(JSON.stringify(exported));
+      expect(exported.request.netlist).not.toContain("OTA five-T");
+      const { project: drawn, diagnostics } = await roundTrip(project, format);
+      expect(
+        diagnostics.filter((item) => item.code.startsWith("RNL_")),
+      ).toEqual([]);
+      const names = (from: CircuitProject) =>
+        from.documents
+          .map((document) => `${document.name} | ${document.netlist?.name}`)
+          .sort();
+      expect(names(drawn)).toEqual(names(project));
+    },
+  );
+
   it("keeps a line style set as the editor sets one, in the shape's override (#1787)", async () => {
     const project = example("simulation-rc");
     const document = project.documents.find(

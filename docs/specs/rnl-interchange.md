@@ -136,7 +136,10 @@ the RNL language and its runtime belong to rnl.
   `analog-canvas-extensions` 0.4, which draw nothing: a part's name where the
   card spells it otherwise (`$CANVAS_NAME`, SPICE's `XM1` for M1), in each
   Cell's own record how the Cell sets names in labels and draws its wire
-  crossings (`$CANVAS_TYPESETTING` on `#`, `crossings="hop"` since 0.3), each
+  crossings (`$CANVAS_TYPESETTING` on `#`, `crossings="hop"` since 0.3) and,
+  where the netlist must write it otherwise, the Cell's own name
+  (`$CANVAS_CELL_NAME` on `#`, since 0.4: `Bootstrap switch` for the
+  subcircuit `Bootstrap_switch`), each
   setting other than the editor's default, none included, and
   on each bound label what it shows (`$CANVAS_LABEL`: the part's name, its
   value, one parameter with or without its value, a Cell Pin's name or a
@@ -270,6 +273,9 @@ the RNL language and its runtime belong to rnl.
     wrote is read from its texts as above;
   - a bound label keeps the drawn styles as its format only where they
     differ from what the binding shows anyway;
+  - a Cell's own name (`$CANVAS_CELL_NAME`), as the editor renames a Cell:
+    its title too where that was its name, each call drawn with the block of
+    the new name, a call's master label that showed the old name;
   - a value's text the author wrote (`$CANVAS_PARAMETER_TEXT`) where it is
     the number the part has, written as Spectre writes it, or the same size
     in micrometres; it belongs to the part, so it stands whether the drawing
