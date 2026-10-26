@@ -2482,7 +2482,8 @@ function importShapes(
         ...(path.controls.some(Boolean)
           ? { curveControls: path.controls }
           : {}),
-        styleOverride: { ...styleOverride, ...ends },
+        // An arrow is made solid; the line it is drawn with is its own.
+        styleOverride: { ...styleOverride, ...drawnOver("solid"), ...ends },
       });
       continue;
     }
