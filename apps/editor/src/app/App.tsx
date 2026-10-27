@@ -851,9 +851,6 @@ function WorkspaceEditor({
   useEffect(() => () => cameraRuntime.dispose(), [cameraRuntime]);
   const [shortcutHintsVisible, setShortcutHintsVisible] = useState(false);
   const [gridDotsVisible, setGridDotsVisible] = useState(true);
-  const simulationTransport = resolveSimulationTransport(
-    import.meta.env.VITE_ICM_SIMULATION_TRANSPORT,
-  );
   // Annotations and drafting place on their own pitch; the Document grid
   // stays the electrical contract for devices, wires, and junctions.
   const [annotationGrid, setAnnotationGridState] = useState<1 | 5 | 10>(() => {
@@ -1015,6 +1012,13 @@ function WorkspaceEditor({
     project,
     resolver,
   });
+  // Signed-out visitors use the direct `/api/simulate` path, whose result is
+  // inline; managed runs are account-scoped. Signed-in sessions keep the
+  // configured transport (managed in hosted releases).
+  const simulationTransport = resolveSimulationTransport(
+    import.meta.env.VITE_ICM_SIMULATION_TRANSPORT,
+    Boolean(publishSession),
+  );
   /** The tab guard's blocker, for Agent hosts built before it (#1462). */
   const projectSwitchBlockerRef = useRef<() => string | null>(() => null);
   const openProjectInTabRef = useRef<

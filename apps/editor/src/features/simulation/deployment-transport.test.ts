@@ -12,4 +12,13 @@ describe("simulation deployment transport", () => {
     expect(resolveSimulationTransport("direct")).toBe("direct");
     expect(resolveSimulationTransport("unknown")).toBe("direct");
   });
+
+  it("uses the direct path for signed-out visitors even in hosted builds", () => {
+    expect(resolveSimulationTransport("managed", false)).toBe("direct");
+    expect(resolveSimulationTransport("direct", false)).toBe("direct");
+  });
+
+  it("keeps managed transport for signed-in sessions", () => {
+    expect(resolveSimulationTransport("managed", true)).toBe("managed");
+  });
 });

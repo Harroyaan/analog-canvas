@@ -29,6 +29,10 @@
     // gateway credential and never falls back to the ngspice route.
     "VACASK_UPSTREAM_URL": "https://vacask-preview-sim.tokenzhang.com",
     "VACASK_PROFILE_ID": "vacask-sky130-candidate",
+    // Opt-in anonymous simulation. Default off: deployments that intend to
+    // admit anonymous compute set this to "true"; signed-in sessions keep the
+    // managed run plane. Turning it off restores the signed-in-only policy.
+    "PUBLIC_SIMULATION": "false",
   },
   "assets": {
     // The binding the Worker fetches through. Its absence is what produced

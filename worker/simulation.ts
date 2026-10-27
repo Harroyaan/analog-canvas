@@ -31,9 +31,22 @@ export function signInToSimulate(): Response {
  * the editor can describe them before anyone signs in. The deploy check
  * proves the route with a credential that deploy made and the next replaces.
  */
+type PublicSimulationEnv = Partial<AuthEnv> & {
+  SIMULATION_SMOKE_TOKEN?: string;
+  PUBLIC_SIMULATION?: string;
+  VACASK_PROFILE_ID?: string;
+  SIMULATION_RATE_LIMITER?: {
+    limit(input: { key: string }): Promise<{ success: boolean }>;
+  };
+  /** General per-address limiter; used when no simulation-specific binding exists. */
+  API_RATE_LIMITER?: {
+    limit(input: { key: string }): Promise<{ success: boolean }>;
+  };
+};
+
 export async function refuseSignedOutSimulation(
   request: Request,
-  env: Partial<AuthEnv> & { SIMULATION_SMOKE_TOKEN?: string },
+  env: PublicSimulationEnv,
 ): Promise<Response | null> {
   if (
     new URL(request.url).pathname !== "/api/simulate" ||
@@ -43,6 +56,39 @@ export async function refuseSignedOutSimulation(
   if (bearerMatches(request, env.SIMULATION_SMOKE_TOKEN)) return null;
   if (await sessionUserOf(request, env)) return null;
   if (await asksForCapabilities(request)) return null;
+  // Opt-in public mode: anonymous visitors may compute through the direct
+  // /api/simulate path, but never through the native preview engine.
+  if (env.PUBLIC_SIMULATION === "true") {
+    if (
+      env.VACASK_PROFILE_ID &&
+      (await asksForNativeProfile(request, env.VACASK_PROFILE_ID))
+    )
+      return Response.json(
+        {
+          error: "simulation-profile-unavailable",
+          message: "The public simulator runs the hosted Sky130 profile only.",
+        },
+        { status: 403, headers: { "cache-control": "no-store" } },
+      );
+    const limiter = env.SIMULATION_RATE_LIMITER ?? env.API_RATE_LIMITER;
+    if (limiter) {
+      const address = request.headers.get("cf-connecting-ip") ?? "unknown";
+      const { success } = await limiter.limit({ key: `simulate:${address}` });
+      if (!success)
+        return Response.json(
+          {
+            error: "simulation-rate-limited",
+            message:
+              "Too many simulations from this address; try again shortly.",
+          },
+          {
+            status: 429,
+            headers: { "cache-control": "no-store", "retry-after": "60" },
+          },
+        );
+    }
+    return null;
+  }
   return signInToSimulate();
 }
 
@@ -54,6 +100,23 @@ async function asksForCapabilities(request: Request): Promise<boolean> {
     return (
       (JSON.parse(text) as { operation?: unknown }).operation === "capabilities"
     );
+  } catch {
+    return false;
+  }
+}
+
+/** The native engine is a preview profile; public mode keeps it off the anonymous path. */
+async function asksForNativeProfile(
+  request: Request,
+  nativeId: string,
+): Promise<boolean> {
+  const text = await boundedText(request.clone(), 8 * 1024 * 1024);
+  if (text === null) return false;
+  try {
+    const body = JSON.parse(text) as {
+      environment?: { profileId?: unknown };
+    };
+    return body.environment?.profileId === nativeId;
   } catch {
     return false;
   }
@@ -91,6 +154,16 @@ export interface SimulationEnv extends VacaskEnv, NgspiceEnv {
   VACASK_PROFILE_ID?: string;
   VACASK_UPSTREAM_URL?: string;
   VACASK_UPSTREAM_TOKEN?: string;
+  /** Opt-in anonymous compute; off unless the deployment explicitly enables it. */
+  PUBLIC_SIMULATION?: string;
+  /** Per-address flood guard for the opt-in anonymous path. */
+  SIMULATION_RATE_LIMITER?: {
+    limit(input: { key: string }): Promise<{ success: boolean }>;
+  };
+  /** General API limiter, used as the public-simulation fallback. */
+  API_RATE_LIMITER?: {
+    limit(input: { key: string }): Promise<{ success: boolean }>;
+  };
 }
 
 export async function routeSimulationRequest(
